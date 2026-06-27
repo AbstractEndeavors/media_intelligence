@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "media_intelligence"
+version = "0.1.2"
+description = "Abstract Intelligence Platform — a unified, layered pipeline that turns raw media (PDFs, images, video) into structured, searchable, SEO-ready data."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "AbstractEndeavors" }]
+keywords = ["ocr", "pdf", "video", "transcription", "summarization", "seo", "media", "pipeline"]
+
+# The facade is a thin, pure-stdlib access layer with ZERO required third-party
+# deps: importing it pulls nothing. Each backing package is its own PyPI project,
+# imported lazily only when that layer is used. Install just the layers you need
+# via the extras below (or `[all]`). `abstract_essentials` is used opportunistically
+# by the filesystem store but has a stdlib fallback, so it's optional too.
+dependencies = []
+
+[project.optional-dependencies]
+# Each layer maps to one canonical owning package. Install only what you use.
+core      = ["abstract_essentials"]   # nicer atomic JSON I/O for FileStore (optional)
+ingest    = ["abstract_webtools"]
+ocr       = ["abstract_ocr"]
+documents = ["abstract_pdfs"]
+video     = ["abstract_videos"]
+transcribe= ["hugpy>=0.1.44"]   # canonical ASR (falls back to abstract_ocr if absent)
+enrich    = ["hugpy>=0.1.44"]   # canonical ML/NLP namespace (>=0.1.44 has the GGUF vision fix)
+publish   = ["abstract_react", "abstract_nginx"]
+bridge    = ["flask"]           # HTTP bridge: POST /media/analyze -> DocumentIntelligence
+# Everything for the full end-to-end platform.
+all = [
+    "abstract_webtools",
+    "abstract_ocr",
+    "abstract_pdfs",
+    "abstract_videos",
+    "hugpy>=0.1.44",
+    "abstract_react",
+    "abstract_nginx",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+media_intelligence = ["py.typed"]
