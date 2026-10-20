@@ -1,3 +1,10 @@
+# Document layer update (0.2)
+
+The document and OCR layers now use native readers, versioned artifacts and
+Hugpy-managed OCR. They no longer depend on abstract_ocr or abstract_pdfs.
+See [DOCUMENTS.md](DOCUMENTS.md) for current APIs, limits and migration details.
+The remaining facade layers retain the architecture documented below.
+
 # media_intelligence — Abstract Intelligence Platform
 
 A unified, layered facade that turns raw media — **PDFs, images, and video** —
@@ -20,8 +27,8 @@ ingest  → extract → structure → enrich → persist → publish
 | Layer        | Owner package        | What it does                                   |
 |--------------|----------------------|------------------------------------------------|
 | `ingest`     | `abstract_webtools`  | scrape pages, download video (yt-dlp/ffmpeg)   |
-| `ocr`        | `abstract_ocr`       | layout-aware, multi-engine OCR                 |
-| `documents`  | `abstract_pdfs`      | PDF decomposition + manifests + HTML           |
+| `ocr`        | Hugpy HTTP adapter   | managed vision transcription                   |
+| `documents`  | document_engine     | native structure, artifacts, page retrieval     |
 | `video`      | `abstract_videos`    | registry pipeline: download/frames/transcribe  |
 | `transcribe` | `hugpy` (→ `abstract_ocr` fallback) | Whisper speech-to-text          |
 | `enrich`     | `hugpy`              | summaries, keywords, vision captioning, SEO    |

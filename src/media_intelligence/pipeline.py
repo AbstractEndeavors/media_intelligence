@@ -23,6 +23,7 @@ Two call styles::
     pipe.ingest().extract().structure().enrich().persist().publish()
     print(pipe.report.summary)
 """
+
 from __future__ import annotations
 
 import os
@@ -65,7 +66,7 @@ class MediaPipeline:
         out_root: Optional[str] = None,
         store: Optional[Store] = None,
         media_id: Optional[str] = None,
-        on_error: str = "raise",       # "raise" | "record"
+        on_error: str = "raise",  # "raise" | "record"
         resume: bool = True,
     ) -> None:
         self.source = source
@@ -74,6 +75,7 @@ class MediaPipeline:
         self.out_root = out_root or os.path.join(os.getcwd(), "media_intelligence_out")
         self.store: Store = store or FileStore(self.out_root)
         self.item = MediaItem(source=source, kind=self.kind, media_id=media_id)
+        self.item.metadata["source_identity"] = self._source_identity()
         self.report = PipelineReport(source=source, kind=self.kind)
 
         # Local file? we already know the path.
@@ -90,7 +92,19 @@ class MediaPipeline:
     def _default_media_id(self) -> str:
         base = os.path.basename(str(self.source).split("?", 1)[0].rstrip("/"))
         stem, _ = os.path.splitext(base)
-        return stem or "media"
+        return (stem or "media")[:48] + "-" + self._source_identity()[:24]
+
+    def _source_identity(self) -> str:
+        import hashlib
+
+        digest = hashlib.sha256(
+            ("media-pipeline-v2:" + os.path.abspath(self.source)).encode()
+        )
+        if os.path.isfile(self.source):
+            with open(self.source, "rb") as f:
+                for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                    digest.update(chunk)
+        return digest.hexdigest()
 
     def _rehydrate(self) -> None:
         """Resume: load the prior document (full body) + manifest into the item.
@@ -105,6 +119,10 @@ class MediaPipeline:
             record = self.store.load_document(self.item.media_id)
             if record is None:
                 record = self.store.load_manifest(self.item.media_id) or {}
+            if (record.get("metadata") or {}).get(
+                "source_identity"
+            ) != self.item.metadata["source_identity"]:
+                return
             self.item.title = record.get("title") or self.item.title
             self.item.summary = record.get("summary") or self.item.summary
             self.item.keywords = record.get("keywords") or self.item.keywords
@@ -127,7 +145,13 @@ class MediaPipeline:
             return self
         try:
             detail = fn() or ""
-            self.report.record(StageResult(stage, "ok", str(detail)))
+            status = (
+                "partial"
+                if stage == Stage.EXTRACT
+                and self.item.metadata.get("document_status") not in (None, "complete")
+                else "ok"
+            )
+            self.report.record(StageResult(stage, status, str(detail)))
         except MediaIntelligenceError as exc:
             self.report.record(StageResult(stage, "error", "", error=str(exc)))
             if self.on_error == "raise":
@@ -145,7 +169,10 @@ class MediaPipeline:
         done = bool(self.item.local_path)
 
         def _do() -> str:
-            if self.kind in (MediaKind.URL, MediaKind.VIDEO) and not self.item.local_path:
+            if (
+                self.kind in (MediaKind.URL, MediaKind.VIDEO)
+                and not self.item.local_path
+            ):
                 coll = self.store.collection_dir(self.item.media_id)
                 mgr = _ingest.download_video(self.source, download_directory=coll)
                 # managers expose the resolved path under a few possible names
@@ -163,13 +190,22 @@ class MediaPipeline:
 
     def extract(self) -> "MediaPipeline":
         """OCR / transcribe / decompose, dispatching on media kind."""
-        done = bool(self.item.text or self.item.transcript or self.item.metadata.get("pdf_result"))
+        done = (
+            self.item.metadata.get("document_status") == "complete"
+            if "document_status" in self.item.metadata
+            else bool(self.item.text or self.item.transcript)
+        )
 
         def _do() -> str:
             path = self.item.local_path or self.source
             if self.kind == MediaKind.IMAGE:
-                self.item.text = _ocr.image_to_text(path)
-                return "ocr image"
+                result = _ocr.image_to_text_layout(path)
+                self.item.text = result["text"]
+                self.item.metadata["document_status"] = result["status"]
+                self.item.metadata["ocr"] = result
+                if not self.item.text.strip():
+                    raise MediaIntelligenceError("OCR returned no readable text")
+                return result["status"] + ": ocr image"
             if self.kind == MediaKind.AUDIO:
                 self.item.transcript = _transcribe.transcribe(path)
                 return "transcribed audio"
@@ -181,21 +217,27 @@ class MediaPipeline:
                     video_path=path if self.kind == MediaKind.VIDEO else None,
                 )
                 self.item.metadata["video_info"] = info
-                self.item.transcript = info.get("whisper") or info.get("transcription") or self.item.transcript
+                self.item.transcript = (
+                    info.get("whisper")
+                    or info.get("transcription")
+                    or self.item.transcript
+                )
                 self.item.summary = info.get("summary") or self.item.summary
                 self.item.keywords = info.get("keywords") or self.item.keywords
                 self.item.title = info.get("title") or self.item.title
                 self.item.seo = info.get("seo") or info.get("seodata") or self.item.seo
                 return "video pipeline (get_all)"
-            if self.kind == MediaKind.PDF:
-                self.item.metadata["pdf_result"] = documents.process_pdf(path)
-                # Read back the per-page OCR'd text so the document record holds
-                # the full body (source of truth), not just process_pdf's counts.
-                pages, full_text = documents.pdf_pages(path)
-                if pages:
-                    self.item.pages = pages
-                    self.item.text = full_text or self.item.text
-                return f"pdf decomposition ({len(pages)} page(s))"
+            if self.kind in (MediaKind.PDF, MediaKind.DOCUMENT):
+                result = documents.extract_document(path)
+                self.item.metadata["document_status"] = result["status"]
+                self.item.metadata["document_artifact_id"] = result["artifact_id"]
+                self.item.pages = result["pages"]
+                self.item.text = result["text"] or None
+                if not result["ok"]:
+                    raise MediaIntelligenceError(
+                        result.get("error") or "No readable document text was extracted"
+                    )
+                return f"{result['status']}: {result['pages_extracted']}/{result['pages_total']} source units extracted"
             raise MediaIntelligenceError(f"Don't know how to extract kind={self.kind}")
 
         return self._run_stage(Stage.EXTRACT, _do, already_done=done)
@@ -233,10 +275,13 @@ class MediaPipeline:
         aggregation, search and LLM-dataset jobs read one record per item instead
         of re-stitching per-owner on-disk files.
         """
+
         def _do() -> str:
             manifest = _structure.build_manifest(self.item)
             document = _structure.build_document(self.item)
-            self.item.manifest_path = self.store.save_manifest(self.item.media_id, manifest)
+            self.item.manifest_path = self.store.save_manifest(
+                self.item.media_id, manifest
+            )
             doc_path = self.store.save_document(self.item.media_id, document)
             return f"manifest + document -> {doc_path}"
 
@@ -250,14 +295,18 @@ class MediaPipeline:
         stage is recorded as ``skipped`` rather than failing the run.
         """
         if self.item.published:
-            self.report.record(StageResult(Stage.PUBLISH, "skipped", "already satisfied"))
+            self.report.record(
+                StageResult(Stage.PUBLISH, "skipped", "already satisfied")
+            )
             return self
 
         manifest = _structure.build_manifest(self.item)
         try:
             meta = _publish.seo_metadata(manifest)
         except MissingDependency:
-            self.report.record(StageResult(Stage.PUBLISH, "skipped", "publish backend not installed"))
+            self.report.record(
+                StageResult(Stage.PUBLISH, "skipped", "publish backend not installed")
+            )
             return self
         except Exception as exc:  # noqa: BLE001
             self.report.record(StageResult(Stage.PUBLISH, "error", "", error=repr(exc)))
@@ -273,7 +322,7 @@ class MediaPipeline:
 
     def run(self, *, stages: Optional[list[Stage]] = None) -> "MediaPipeline":
         """Run the full pipeline (or a subset) in order, returning self."""
-        for stage in (stages or _STAGE_ORDER):
+        for stage in stages or _STAGE_ORDER:
             getattr(self, stage.value)()
         return self
 

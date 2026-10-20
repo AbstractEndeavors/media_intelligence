@@ -4,6 +4,7 @@ Principle #2 of the vision: *structured over raw*. Every stage reads and writes
 these typed records instead of passing loose blobs around. Pure stdlib
 dataclasses so importing the facade never costs more than the standard library.
 """
+
 from __future__ import annotations
 
 import enum
@@ -31,6 +32,7 @@ class MediaKind(str, enum.Enum):
     """The media types the platform converges on (vision: multimodal)."""
 
     PDF = "pdf"
+    DOCUMENT = "document"
     IMAGE = "image"
     VIDEO = "video"
     AUDIO = "audio"
@@ -61,6 +63,21 @@ def detect_media_kind(source: str) -> MediaKind:
     _, ext = os.path.splitext(path_part)
     if ext in _DOC_EXTS:
         return MediaKind.PDF
+    if ext in {
+        ".docx",
+        ".xlsx",
+        ".xlsm",
+        ".pptx",
+        ".txt",
+        ".md",
+        ".csv",
+        ".tsv",
+        ".json",
+        ".xml",
+        ".log",
+        ".rst",
+    }:
+        return MediaKind.DOCUMENT
     if ext in _IMAGE_EXTS:
         return MediaKind.IMAGE
     if ext in _VIDEO_EXTS:
@@ -91,10 +108,10 @@ class MediaItem:
     media_id: Optional[str] = None
 
     # --- extraction outputs ---
-    text: Optional[str] = None                 # full extracted/transcribed text
-    pages: list[dict[str, Any]] = field(default_factory=list)   # per-page/segment
+    text: Optional[str] = None  # full extracted/transcribed text
+    pages: list[dict[str, Any]] = field(default_factory=list)  # per-page/segment
     transcript: Optional[dict[str, Any]] = None  # whisper-style result
-    frames: list[str] = field(default_factory=list)             # frame image paths
+    frames: list[str] = field(default_factory=list)  # frame image paths
 
     # --- enrichment outputs ---
     summary: Optional[str] = None
@@ -104,9 +121,9 @@ class MediaItem:
 
     # --- structure / persistence ---
     metadata: dict[str, Any] = field(default_factory=dict)
-    assets: dict[str, str] = field(default_factory=dict)        # role -> path
+    assets: dict[str, str] = field(default_factory=dict)  # role -> path
     manifest_path: Optional[str] = None
-    published: dict[str, str] = field(default_factory=dict)     # html/url outputs
+    published: dict[str, str] = field(default_factory=dict)  # html/url outputs
 
     def __post_init__(self) -> None:
         if self.kind in (MediaKind.UNKNOWN, None):
@@ -123,7 +140,7 @@ class StageResult:
     """Outcome of a single pipeline stage — drives idempotency/resume."""
 
     stage: Stage
-    status: str = "pending"          # pending | ok | skipped | error
+    status: str = "pending"  # pending | ok | skipped | error
     detail: str = ""
     error: Optional[str] = None
 

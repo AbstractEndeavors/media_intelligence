@@ -14,6 +14,7 @@ Two surfaces:
 * `build_blueprint(...)` / `create_app()` — optional Flask wrapper exposing
   ``POST /media/analyze``. Flask is an optional dependency (the ``[bridge]`` extra).
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Optional
@@ -33,7 +34,7 @@ _ANALYZE_STAGES = [Stage.INGEST, Stage.EXTRACT, Stage.STRUCTURE, Stage.ENRICH]
 # UI MediaCategory -> our MediaKind (document has no distinct kind; treat as PDF).
 _KIND_MAP = {
     "pdf": MediaKind.PDF,
-    "document": MediaKind.PDF,
+    "document": MediaKind.DOCUMENT,
     "image": MediaKind.IMAGE,
     "video": MediaKind.VIDEO,
     "audio": MediaKind.AUDIO,
@@ -54,7 +55,12 @@ def document_intelligence(item: Any, report: Any) -> dict[str, Any]:
         "keywords": item.keywords or None,
         "caption": item.metadata.get("caption"),
         "stages": [
-            {"stage": s.stage.value, "status": s.status, "detail": s.detail or None}
+            {
+                "stage": s.stage.value,
+                "status": s.status,
+                "detail": s.error or s.detail or None,
+                "error": s.error,
+            }
             for s in report.stages.values()
         ],
         "ok": report.ok,
@@ -88,6 +94,7 @@ def analyze(
 def _require_flask():
     try:
         import flask  # noqa: F401
+
         return flask
     except ModuleNotFoundError as exc:  # pragma: no cover
         raise RuntimeError(

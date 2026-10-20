@@ -4,6 +4,7 @@ Stores each item as ``<root>/<media_id>/manifest.json`` alongside its asset
 collection directory. Uses ``abstract_essentials`` JSON helpers when present,
 falling back to the stdlib so persistence never hard-depends on anything.
 """
+
 from __future__ import annotations
 
 import json
@@ -83,4 +84,7 @@ class FileStore:
     @staticmethod
     def _safe(media_id: str) -> str:
         # keep collection dir names filesystem-safe
-        return "".join(c if (c.isalnum() or c in "-_.") else "_" for c in str(media_id))
+        name = "".join(c if (c.isalnum() or c in "-_.") else "_" for c in str(media_id))
+        if name in ("", ".", ".."):
+            raise ValueError("Invalid media collection id")
+        return name
