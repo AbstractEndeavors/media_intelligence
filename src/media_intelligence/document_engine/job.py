@@ -1,7 +1,7 @@
 """Bounded parser jobs. Only the child process receives resource limits."""
 
 from __future__ import annotations
-import json, os, subprocess, sys, threading
+import json, os, subprocess, sys, threading, time
 from pathlib import Path
 from .model import Limits
 
@@ -80,9 +80,19 @@ def main():
     body = json.load(sys.stdin)
     limits = Limits(**body.pop("limits"))
     memory_mb = int(os.environ.get("HUGPY_DOCUMENT_WORKER_MEMORY_MB", "4096"))
-    resource.setrlimit(
-        resource.RLIMIT_AS, (memory_mb * 1024 * 1024, memory_mb * 1024 * 1024)
-    )
+    memory_bytes = memory_mb * 1024 * 1024
+    if sys.platform == "darwin":
+        # Darwin rejects finite RLIMIT_AS values. Bound the parser's resident
+        # memory instead; ru_maxrss is measured in bytes on macOS.
+        def watch_memory():
+            while True:
+                if resource.getrusage(resource.RUSAGE_SELF).ru_maxrss > memory_bytes:
+                    os._exit(1)
+                time.sleep(0.05)
+
+        threading.Thread(target=watch_memory, daemon=True).start()
+    else:
+        resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
     resource.setrlimit(
         resource.RLIMIT_CPU,
         (int(limits.deadline_seconds), int(limits.deadline_seconds) + 2),
