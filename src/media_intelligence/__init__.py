@@ -39,6 +39,8 @@ cheap and a missing optional package only errors when that layer is used.
 
 from __future__ import annotations
 
+from .imports.constants import _LAZY_SUBMODULES, _LAYER_PACKAGES
+
 import importlib
 import importlib.util
 from typing import TYPE_CHECKING
@@ -56,31 +58,9 @@ from .schemas import (
 __version__ = "0.2.0"
 
 # Submodules exposed as lazy namespaces via module __getattr__ below.
-_LAZY_SUBMODULES = {
-    "ingest",
-    "ocr",
-    "documents",
-    "video",
-    "transcribe",
-    "enrich",
-    "structure",
-    "persist",
-    "publish",
-}
 
 # Which backing package(s) each layer needs. ``persist`` is pure-stdlib (always
 # available); ``transcribe`` works if either hugpy or abstract_ocr is present.
-_LAYER_PACKAGES = {
-    "ingest": ("abstract_webtools",),
-    "ocr": (),
-    "documents": ("pdfplumber", "pypdfium2", "docx", "openpyxl"),
-    "video": ("abstract_videos",),
-    "transcribe": ("hugpy", "abstract_ocr"),  # any-of
-    "enrich": ("hugpy",),
-    "structure": (),
-    "persist": (),
-    "publish": ("abstract_react",),  # nginx HTML is an additional option
-}
 
 __all__ = [
     "MediaPipeline",

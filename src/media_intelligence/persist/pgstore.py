@@ -7,18 +7,14 @@ that wiring raises a clear, actionable error rather than silently no-op'ing.
 """
 from __future__ import annotations
 
+from ..imports.constants import _NOT_WIRED
+
 from typing import Any, Optional
 
 from .._lazy import MediaIntelligenceError
 
 __all__ = ["PgStore"]
 
-_NOT_WIRED = (
-    "PgStore is the interface-ready stub for the DB/JSONB persistence backend. "
-    "v1 ships filesystem persistence (use FileStore); the Postgres/JSONB backend "
-    "over 'abstract_database' is the planned next iteration. Track it before "
-    "relying on database persistence."
-)
 
 
 class PgStore:

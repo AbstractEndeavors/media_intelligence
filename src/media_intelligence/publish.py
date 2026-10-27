@@ -13,12 +13,12 @@ processing, so for PDFs the publish step is frequently already satisfied upstrea
 """
 from __future__ import annotations
 
+from .imports.constants import _REACT, _NGINX
+
 from typing import Any
 
 from ._lazy import require, soft_import
 
-_REACT = "abstract_react"
-_NGINX = "abstract_nginx"
 _LAYER = "publish"
 
 __all__ = [

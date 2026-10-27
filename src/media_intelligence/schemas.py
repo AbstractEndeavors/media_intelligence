@@ -7,6 +7,8 @@ dataclasses so importing the facade never costs more than the standard library.
 
 from __future__ import annotations
 
+from .imports.constants import _IMAGE_EXTS, _VIDEO_EXTS, _AUDIO_EXTS, _DOC_EXTS
+
 import enum
 import os
 from dataclasses import dataclass, field, asdict
@@ -22,10 +24,6 @@ __all__ = [
 ]
 
 # Extension → media kind. Kept deliberately small and explicit.
-_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff", ".webp"}
-_VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".flv", ".m3u8"}
-_AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac"}
-_DOC_EXTS = {".pdf"}
 
 
 class MediaKind(str, enum.Enum):

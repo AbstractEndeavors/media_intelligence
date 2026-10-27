@@ -11,6 +11,8 @@ rather than leaking a raw ``ModuleNotFoundError`` from deep inside a submodule.
 """
 from __future__ import annotations
 
+from .imports.constants import _EXTRA_FOR_PACKAGE
+
 import functools
 import importlib
 from types import ModuleType
@@ -34,16 +36,6 @@ class MissingDependency(MediaIntelligenceError):
 
 
 # Which pip extra installs which backing package — used to build helpful errors.
-_EXTRA_FOR_PACKAGE = {
-    "abstract_essentials": "(core)",
-    "abstract_webtools": "ingest",
-    "abstract_ocr": "ocr",
-    "abstract_pdfs": "documents",
-    "abstract_videos": "video",
-    "hugpy": "enrich",
-    "abstract_react": "publish",
-    "abstract_nginx": "publish",
-}
 
 _MODULE_CACHE: dict[str, ModuleType] = {}
 

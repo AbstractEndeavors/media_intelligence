@@ -16,7 +16,7 @@ keywords = ["ocr", "pdf", "video", "transcription", "summarization", "seo", "med
 # imported lazily only when that layer is used. Install just the layers you need
 # via the extras below (or `[all]`). `abstract_essentials` is used opportunistically
 # by the filesystem store but has a stdlib fallback, so it's optional too.
-dependencies = []
+dependencies = ["hugpy-resources>=0.1.2.8,<0.2"]
 
 [project.urls]
 Homepage = "https://hugpy.ai"

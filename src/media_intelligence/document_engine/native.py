@@ -1,24 +1,12 @@
 """Native document readers, with structure and source-native references."""
 
 from __future__ import annotations
+
+from ..imports.constants import TEXT_EXT
 import csv, io, zipfile, xml.etree.ElementTree as ET
 from pathlib import Path
 from .model import Page, Limits
 
-TEXT_EXT = {
-    ".txt",
-    ".md",
-    ".markdown",
-    ".rst",
-    ".csv",
-    ".tsv",
-    ".json",
-    ".log",
-    ".text",
-    ".xml",
-    ".yaml",
-    ".yml",
-}
 
 
 def check_zip(path: Path, limits: Limits):

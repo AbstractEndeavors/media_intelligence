@@ -1,11 +1,11 @@
 """Versioned, engine-neutral document artifacts. No model or parser imports."""
 
 from __future__ import annotations
+
+from ..imports.constants import SCHEMA_VERSION, ENGINE_VERSION
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Protocol
 
-SCHEMA_VERSION = "hugpy.document.v1"
-ENGINE_VERSION = "1.0.0"
 
 
 @dataclass
