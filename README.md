@@ -1,4 +1,4 @@
-# Document layer update (0.2)
+# Document layer
 
 The document and OCR layers now use native readers, versioned artifacts and
 Hugpy-managed OCR. They no longer depend on abstract_ocr or abstract_pdfs.
@@ -45,13 +45,13 @@ engines. Each layer's owner is its own PyPI package, declared as an **optional
 extra**, so you install only what you use:
 
 ```bash
-pip install media_intelligence              # zero third-party deps — facade only
+pip install media_intelligence              # facade plus hugpy-resources
 pip install "media_intelligence[ocr,enrich]"  # just those layers
 pip install "media_intelligence[all]"       # the full platform
 ```
 
-The package has **no required third-party dependencies**: importing it is cheap
-(~20 ms) and pulls **none** of the backing packages. Each sibling is imported
+The base package depends on `hugpy-resources`; heavyweight backing packages
+remain optional. Each sibling is imported
 **lazily**, only when its layer is actually called; a missing one raises a clear
 `MissingDependency` naming the extra to install.
 
@@ -116,4 +116,3 @@ doc = store.load_document(item.media_id)        # aggregation reads this
 
 `MediaPipeline.persist()` writes both. On re-run, the body is rehydrated from
 `document.json`, so `extract`/`enrich` skip (no re-OCR / re-transcribe).
-```
